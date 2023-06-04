@@ -1,0 +1,155 @@
+/*
+ * Yi Qian Goh
+ * COEN 12 Project 3
+ * 29 April 2022
+ * Description: Implementation of a set abstract data type for strings. 
+ * */
+
+//header files
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <stdlib.h>
+#include "set.h"
+#include <stdbool.h>
+
+//function declarations
+unsigned strhash(char *s);
+static int search(SET *sp, char *elt, bool *found);
+
+//define a structure. Compared to lab2, this structure is similar except for an additional array of flags to keep track of which indexes are filled, empty, or were deleted.
+typedef struct set {
+    int count;
+    int length;
+    char **data;
+    char *flags;
+} SET;
+
+//This function allocates memory 
+//Big-O: O(n)
+SET *createSet(int maxElts) {
+    SET *sp;
+    sp = (SET*)malloc(sizeof(SET));
+    assert(sp != NULL);
+    sp->count = 0;
+    sp->length = maxElts;
+    sp->data = malloc(sizeof(char*)*maxElts);
+    assert(sp->data != NULL);
+    sp->flags = malloc(sizeof(char*)*maxElts);
+    assert(sp->flags != NULL);
+    int i;
+    for(i = 0; i<sp->length; i++) {
+	sp->flags[i] = 'E';
+    }
+    return sp;
+}
+
+//hash function from lecture. Hashes char *s and returns unsigned
+//Big-O: O(1)
+unsigned strhash(char *s) {
+    unsigned hash = 0;
+    while(*s != '\0') {
+	hash = 31 *hash + *s++;
+    }
+    return hash;
+}
+
+//sequential search function that returns the index of specified elt if it is found. 
+//Big-O: O(n)
+static int search(SET *sp, char *elt, bool *found) {
+    assert(sp != NULL && elt != NULL && found!=NULL);
+    int i;
+    for(i = 0; i < sp->length; i++) {
+	int locn = (strhash(elt)+i)%sp->length; //makes sure all indexes in the array is serched. When the locn starts off in the middle of the array, it will loop back to the beginnign of the array because of this equation
+	if(sp->flags[locn] == 'F') { //if the flag is 'F' the index being searched is filled. Next we must check if the string is the same as the specified element. If not then search the next index. 
+	    if(strcmp(elt, sp->data[locn]) == 0){ //check if the filled spot in the array contains the element we specified in the parameter
+		*found = true;
+		return locn;
+	    }
+	}
+        if(sp->flags[locn] == 'D'){ //if the flag is 'D' the element in the array had been deleted. new element should still be inserted.
+	    *found = false;
+	    return locn;
+	} else if (sp->flags[locn] == 'E') { //if the flag is 'E' the index is empty and the new element should be inserted.
+	    *found = false;
+	    return locn;
+	}
+    }
+    *found = false;
+    return -1;
+}
+
+//frees allocated memory
+//Big-O: O(n)
+void destroySet(SET *sp) {
+    assert(sp != NULL);	
+    free(sp->data);
+    free(sp->flags);
+    free(sp);
+    return;
+}
+
+//returns number of elements in the sp->data array
+int numElements(SET *sp) {
+    assert(sp != NULL);
+    return sp->count;
+}
+
+//Checks is the element is already in the array, if not then insert it.
+//Big-O: O(n)
+void addElement(SET *sp, char *elt) {
+    assert(sp != NULL && elt != NULL);
+    bool found;
+    int locn = search(sp, elt, &found);
+    if(!found) {
+	char *copy = strdup(elt);
+	assert(copy != NULL);
+	sp->data[locn] = copy;
+	sp->flags[locn] = 'F';
+	sp->count += 1;
+    }
+    return;
+}
+
+//removes the element from the array and changes the flag to 'D' indicating that the element was deleted. Then the memory is freed.
+//Big-O: O(n)
+void removeElement(SET *sp, char *elt) {
+    assert(sp != NULL && elt != NULL);
+    bool found;
+    int i = search(sp, elt, &found);
+    if(found) {
+	sp->flags[i] = 'D';
+	free(sp->data[i]);
+	sp->count -= 1;
+    }
+}
+
+//Uses the search function to find the element. If found, the element is returned. If not found, then it returns NULL.
+//Big-O: O(n)
+char *findElement(SET *sp, char *elt) {
+    assert(sp!=NULL && elt!=NULL);
+    bool found;
+    int i = search(sp, elt, &found);
+    if(found) {
+	return sp->data[i];
+    } else {
+	return NULL;
+    }
+}
+
+
+//creates a new array and inserts all the elements in sp->data into the new array. Returns the new array
+//Big-O: O(n)
+char **getElements(SET *sp) {
+    assert(sp != NULL);
+    char **elts = malloc(sizeof(char*)*sp->count);
+    assert(elts != NULL);
+    int i, j=0;
+    for(i = 0; i < sp->length; i++) {
+	if(sp->flags[i] == 'F') {
+	    elts[j] = sp->data[i];
+	    j++;
+	}	    
+    }
+    return elts;
+}
